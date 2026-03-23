@@ -2,6 +2,20 @@
     const MiniAgile = window.MiniAgile = window.MiniAgile || {};
     MiniAgile.modals = MiniAgile.modals || {};
 
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function safeAttachmentUrl(url) {
+        const normalized = String(url || '');
+        return normalized.startsWith('/static/') ? normalized : '#';
+    }
+
     function renderEvidenceTimeline(evidences) {
         if (!evidences || evidences.length === 0) {
             return `
@@ -15,7 +29,7 @@
             <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                 <div class="flex items-start justify-between gap-3 mb-3">
                     <div>
-                        <div class="text-sm font-semibold text-gray-900">${evidence.creator_name || '未知用户'}</div>
+                        <div class="text-sm font-semibold text-gray-900">${escapeHtml(evidence.creator_name || '未知用户')}</div>
                         <div class="text-xs text-gray-500">${evidence.created_at ? new Date(evidence.created_at).toLocaleString('zh-CN') : '-'}</div>
                     </div>
                     <span class="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
@@ -23,20 +37,20 @@
                     </span>
                 </div>
                 ${evidence.comment ? `
-                    <div class="mb-3 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 whitespace-pre-wrap">${evidence.comment}</div>
+                    <div class="mb-3 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 whitespace-pre-wrap">${escapeHtml(evidence.comment)}</div>
                 ` : ''}
                 ${evidence.stack_trace ? `
                     <div class="mb-3">
                         <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">异常堆栈</div>
-                        <pre class="max-h-56 overflow-auto rounded-lg bg-gray-900 px-3 py-3 text-xs leading-5 text-gray-100 whitespace-pre-wrap">${evidence.stack_trace}</pre>
+                        <pre class="max-h-56 overflow-auto rounded-lg bg-gray-900 px-3 py-3 text-xs leading-5 text-gray-100 whitespace-pre-wrap">${escapeHtml(evidence.stack_trace)}</pre>
                     </div>
                 ` : ''}
                 ${evidence.attachments && evidence.attachments.length > 0 ? `
                     <div class="grid grid-cols-2 gap-3">
                         ${evidence.attachments.map((attachment) => `
-                            <a href="${attachment.url}" target="_blank" rel="noreferrer" class="group block overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-                                <img src="${attachment.url}" alt="${attachment.file_name}" class="h-36 w-full object-cover transition-transform duration-200 group-hover:scale-105">
-                                <div class="truncate border-t border-gray-200 px-3 py-2 text-xs text-gray-600">${attachment.file_name}</div>
+                            <a href="${safeAttachmentUrl(attachment.url)}" target="_blank" rel="noreferrer" class="group block overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                                <img src="${safeAttachmentUrl(attachment.url)}" alt="${escapeHtml(attachment.file_name)}" class="h-36 w-full object-cover transition-transform duration-200 group-hover:scale-105">
+                                <div class="truncate border-t border-gray-200 px-3 py-2 text-xs text-gray-600">${escapeHtml(attachment.file_name)}</div>
                             </a>
                         `).join('')}
                     </div>
@@ -58,10 +72,10 @@
                     ${logs && logs.length > 0 ? logs.map((log) => `
                         <div class="flex items-start justify-between gap-3 rounded-lg border border-red-100 bg-white px-3 py-3 text-sm">
                             <div>
-                                <div class="font-semibold text-gray-800">${log.user_name}</div>
+                                <div class="font-semibold text-gray-800">${escapeHtml(log.user_name)}</div>
                                 <div class="text-xs text-gray-500">工时日期：${log.date}</div>
                                 <div class="text-xs text-gray-400">登记时间：${log.created_at ? new Date(log.created_at).toLocaleString('zh-CN') : '-'}</div>
-                                ${log.description ? `<div class="mt-1 text-gray-600 whitespace-pre-wrap">${log.description}</div>` : ''}
+                                ${log.description ? `<div class="mt-1 text-gray-600 whitespace-pre-wrap">${escapeHtml(log.description)}</div>` : ''}
                             </div>
                             <div class="rounded bg-red-50 px-2 py-1 text-xs font-bold text-red-600">${log.hours}h</div>
                         </div>
@@ -142,14 +156,14 @@
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">负责人（可选）</label>
                                 <select name="assignee_id" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm bg-white">
                                     <option value="">不分配</option>
-                                    ${(users || []).map(u => `<option value="${u.id}">${u.username}</option>`).join('')}
+                                    ${(users || []).map(u => `<option value="${u.id}">${escapeHtml(u.username)}</option>`).join('')}
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">关联迭代（可选）</label>
                                 <select name="sprint_id" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm bg-white">
                                     <option value="">不关联</option>
-                                    ${sprints.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                                    ${sprints.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}
                                 </select>
                             </div>
                         </div>
@@ -157,7 +171,7 @@
                             <label class="block text-sm font-semibold text-gray-700 mb-2">关联需求（可选）</label>
                             <select name="requirement_id" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm bg-white">
                                 <option value="">不关联</option>
-                                ${(requirements || []).map(r => `<option value="${r.id}">${r.title}</option>`).join('')}
+                                ${(requirements || []).map(r => `<option value="${r.id}">${escapeHtml(r.title)}</option>`).join('')}
                             </select>
                         </div>
                     </div>
@@ -237,12 +251,23 @@
             4: 'bg-blue-100 text-blue-700',
             5: 'bg-gray-100 text-gray-700'
         };
+        const safeTitle = escapeHtml(bug.title);
+        const safeDescription = escapeHtml(bug.description);
+        const safeSteps = escapeHtml(bug.steps_to_reproduce || '');
+        const safeExpected = escapeHtml(bug.expected_result || '');
+        const safeActual = escapeHtml(bug.actual_result || '');
+        const safeEnvironment = escapeHtml(bug.environment || '');
+        const safeLatestStackTrace = escapeHtml(bug.latest_stack_trace || '');
+        const safeReporterName = escapeHtml(bug.reporter_name || '未知');
+        const safeAssigneeName = escapeHtml(bug.assignee_name || '未分配');
+        const safeSprintName = escapeHtml(bug.sprint_name || '');
+        const safeRequirementTitle = escapeHtml(bug.requirement_title || '');
 
         this.modalShow(`
             <div class="max-h-[75vh] overflow-y-auto pr-1">
                 <div class="mb-6">
                     <div class="flex items-start justify-between mb-3">
-                        <h3 class="text-2xl font-bold text-gray-900 flex-1">${bug.title}</h3>
+                        <h3 class="text-2xl font-bold text-gray-900 flex-1">${safeTitle}</h3>
                         <div class="flex flex-wrap items-center justify-end gap-2">
                             <button onclick="app.modals.editBug(${bug.id})" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-all text-sm font-medium">
                                 <i class="fa-solid fa-edit mr-2"></i>编辑
@@ -259,21 +284,21 @@
                         <span class="px-2.5 py-1 text-xs font-semibold rounded-full ${severityColors[bug.severity]}">${severityLabels[bug.severity]}</span>
                         <span class="px-2.5 py-1 text-xs font-semibold rounded-full ${statusColors[bug.status]}">${statusLabels[bug.status]}</span>
                         <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">证据 ${bug.evidence_count || 0}</span>
-                        ${bug.sprint_name ? `<span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-700"><i class="fa-solid fa-rotate mr-1"></i>${bug.sprint_name}</span>` : ''}
-                        ${bug.requirement_title ? `<span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700"><i class="fa-solid fa-file-lines mr-1"></i>${bug.requirement_title}</span>` : ''}
+                        ${bug.sprint_name ? `<span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-700"><i class="fa-solid fa-rotate mr-1"></i>${safeSprintName}</span>` : ''}
+                        ${bug.requirement_title ? `<span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700"><i class="fa-solid fa-file-lines mr-1"></i>${safeRequirementTitle}</span>` : ''}
                     </div>
                 </div>
 
                 <div class="space-y-5">
                     <div class="bg-gray-50 rounded-xl p-5 border border-gray-200">
                         <h4 class="text-sm font-bold text-gray-700 mb-2">缺陷描述</h4>
-                        <p class="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">${bug.description}</p>
+                        <p class="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">${safeDescription}</p>
                     </div>
 
                     ${bug.steps_to_reproduce ? `
                     <div class="bg-orange-50 rounded-xl p-5 border border-orange-200">
                         <h4 class="text-sm font-bold text-orange-700 mb-2"><i class="fa-solid fa-list-ol mr-2"></i>复现步骤</h4>
-                        <p class="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">${bug.steps_to_reproduce}</p>
+                        <p class="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">${safeSteps}</p>
                     </div>
                     ` : ''}
 
@@ -281,13 +306,13 @@
                         ${bug.expected_result ? `
                         <div class="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
                             <div class="text-xs font-semibold text-emerald-600 mb-2"><i class="fa-solid fa-check mr-1"></i>期望结果</div>
-                            <div class="text-sm text-gray-900 whitespace-pre-wrap">${bug.expected_result}</div>
+                            <div class="text-sm text-gray-900 whitespace-pre-wrap">${safeExpected}</div>
                         </div>
                         ` : ''}
                         ${bug.actual_result ? `
                         <div class="bg-red-50 rounded-xl p-4 border border-red-200">
                             <div class="text-xs font-semibold text-red-600 mb-2"><i class="fa-solid fa-times mr-1"></i>实际结果</div>
-                            <div class="text-sm text-gray-900 whitespace-pre-wrap">${bug.actual_result}</div>
+                            <div class="text-sm text-gray-900 whitespace-pre-wrap">${safeActual}</div>
                         </div>
                         ` : ''}
                     </div>
@@ -295,14 +320,14 @@
                     ${bug.environment ? `
                     <div class="bg-white rounded-xl p-4 border border-gray-200">
                         <div class="text-xs font-semibold text-gray-500 mb-1"><i class="fa-solid fa-desktop mr-1"></i>环境信息</div>
-                        <div class="text-sm font-medium text-gray-900">${bug.environment}</div>
+                        <div class="text-sm font-medium text-gray-900">${safeEnvironment}</div>
                     </div>
                     ` : ''}
 
                     ${bug.latest_stack_trace ? `
                     <div class="bg-gray-950 rounded-xl p-4 border border-gray-800">
                         <div class="text-xs font-semibold text-gray-300 mb-2"><i class="fa-solid fa-terminal mr-1"></i>最新异常堆栈</div>
-                        <pre class="text-xs text-gray-100 whitespace-pre-wrap overflow-auto max-h-64">${bug.latest_stack_trace}</pre>
+                        <pre class="text-xs text-gray-100 whitespace-pre-wrap overflow-auto max-h-64">${safeLatestStackTrace}</pre>
                     </div>
                     ` : ''}
 
@@ -323,11 +348,11 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div class="bg-white rounded-xl p-4 border border-gray-200">
                             <div class="text-xs font-semibold text-gray-500 mb-1">报告者</div>
-                            <div class="text-sm font-bold text-gray-900">${bug.reporter_name || '未知'}</div>
+                            <div class="text-sm font-bold text-gray-900">${safeReporterName}</div>
                         </div>
                         <div class="bg-white rounded-xl p-4 border border-gray-200">
                             <div class="text-xs font-semibold text-gray-500 mb-1">负责人</div>
-                            <div class="text-sm font-bold text-gray-900">${bug.assignee_name || '未分配'}</div>
+                            <div class="text-sm font-bold text-gray-900">${safeAssigneeName}</div>
                         </div>
                         <div class="bg-white rounded-xl p-4 border border-gray-200">
                             <div class="text-xs font-semibold text-gray-500 mb-1">创建时间</div>
@@ -366,6 +391,12 @@
         const sprints = projectData?.sprints || [];
         const requirements = await this.api(`/projects/${bug.project_id}/requirements`);
         const users = await this.api('/users/search');
+        const safeTitle = escapeHtml(bug.title);
+        const safeDescription = escapeHtml(bug.description);
+        const safeSteps = escapeHtml(bug.steps_to_reproduce || '');
+        const safeExpected = escapeHtml(bug.expected_result || '');
+        const safeActual = escapeHtml(bug.actual_result || '');
+        const safeEnvironment = escapeHtml(bug.environment || '');
 
         this.modalShow(`
             <div>
@@ -385,11 +416,11 @@
                     <form onsubmit="app.handlers.updateBug(event, ${bug.id})" class="space-y-5">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">缺陷标题</label>
-                            <input name="title" value="${bug.title}" required class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm">
+                            <input name="title" value="${safeTitle}" required class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm">
                         </div>
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">缺陷描述</label>
-                            <textarea name="description" required rows="3" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm resize-none">${bug.description}</textarea>
+                            <textarea name="description" required rows="3" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm resize-none">${safeDescription}</textarea>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -415,22 +446,22 @@
                         </div>
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">复现步骤</label>
-                            <textarea name="steps_to_reproduce" rows="2" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm resize-none">${bug.steps_to_reproduce || ''}</textarea>
+                            <textarea name="steps_to_reproduce" rows="2" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm resize-none">${safeSteps}</textarea>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">期望结果</label>
-                                <textarea name="expected_result" rows="2" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm resize-none">${bug.expected_result || ''}</textarea>
+                                <textarea name="expected_result" rows="2" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm resize-none">${safeExpected}</textarea>
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">实际结果</label>
-                                <textarea name="actual_result" rows="2" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm resize-none">${bug.actual_result || ''}</textarea>
+                                <textarea name="actual_result" rows="2" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm resize-none">${safeActual}</textarea>
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">环境信息</label>
-                                <input name="environment" value="${bug.environment || ''}" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm">
+                                <input name="environment" value="${safeEnvironment}" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm">
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">预估工时 (h)</label>
@@ -442,14 +473,14 @@
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">负责人</label>
                                 <select name="assignee_id" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm bg-white">
                                     <option value="">不分配</option>
-                                    ${(users || []).map(u => `<option value="${u.id}" ${String(bug.assignee_id) === String(u.id) ? 'selected' : ''}>${u.username}</option>`).join('')}
+                                    ${(users || []).map(u => `<option value="${u.id}" ${String(bug.assignee_id) === String(u.id) ? 'selected' : ''}>${escapeHtml(u.username)}</option>`).join('')}
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">关联迭代</label>
                                 <select name="sprint_id" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm bg-white">
                                     <option value="">不关联</option>
-                                    ${sprints.map(s => `<option value="${s.id}" ${String(bug.sprint_id) === String(s.id) ? 'selected' : ''}>${s.name}</option>`).join('')}
+                                    ${sprints.map(s => `<option value="${s.id}" ${String(bug.sprint_id) === String(s.id) ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
                                 </select>
                             </div>
                         </div>
@@ -457,7 +488,7 @@
                             <label class="block text-sm font-semibold text-gray-700 mb-2">关联需求</label>
                             <select name="requirement_id" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm bg-white">
                                 <option value="">不关联</option>
-                                ${(requirements || []).map(r => `<option value="${r.id}" ${String(bug.requirement_id) === String(r.id) ? 'selected' : ''}>${r.title}</option>`).join('')}
+                                ${(requirements || []).map(r => `<option value="${r.id}" ${String(bug.requirement_id) === String(r.id) ? 'selected' : ''}>${escapeHtml(r.title)}</option>`).join('')}
                             </select>
                         </div>
                         <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
@@ -524,7 +555,7 @@
                     <p class="text-sm text-gray-500">为缺陷 #${bug.id} 添加新的截图、异常堆栈或补充说明</p>
                 </div>
                 <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                    当前缺陷：<span class="font-semibold text-gray-900">${bug.title}</span>
+                    当前缺陷：<span class="font-semibold text-gray-900">${escapeHtml(bug.title)}</span>
                 </div>
                 <form onsubmit="app.handlers.submitBugEvidence(event, ${bug.id})" class="space-y-4">
                     <div>
