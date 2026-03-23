@@ -16,6 +16,24 @@
         return normalized.startsWith('/static/') ? normalized : '#';
     }
 
+    const DEFAULT_BUG_STEPS_TEMPLATE = `【复现环境】
+浏览器/系统：
+账号：
+版本：
+
+【复现步骤】
+1.
+2.
+3.
+
+【实际结果】
+
+
+【期望结果】
+
+
+【补充说明】`;
+
     function renderEvidenceTimeline(evidences) {
         if (!evidences || evidences.length === 0) {
             return `
@@ -135,21 +153,8 @@
                         </div>
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">复现步骤</label>
-                            <textarea name="steps_to_reproduce" rows="3" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-3 px-4 text-sm placeholder-gray-400 transition-all resize-none" placeholder="1. 打开登录页面\n2. 输入用户名密码\n3. 点击登录按钮"></textarea>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">期望结果</label>
-                                <textarea name="expected_result" rows="2" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-3 px-4 text-sm placeholder-gray-400 transition-all resize-none" placeholder="应该成功登录并跳转到首页"></textarea>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">实际结果</label>
-                                <textarea name="actual_result" rows="2" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-3 px-4 text-sm placeholder-gray-400 transition-all resize-none" placeholder="页面显示错误提示"></textarea>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">环境信息</label>
-                            <input name="environment" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm placeholder-gray-400 transition-all" placeholder="例如：Chrome 120, Windows 11">
+                            <textarea name="steps_to_reproduce" data-bug-steps-template="1" rows="10" class="block w-full min-h-[14rem] rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-3 px-4 text-sm placeholder-gray-400 transition-all resize-y">${escapeHtml(DEFAULT_BUG_STEPS_TEMPLATE)}</textarea>
+                            <p class="mt-2 text-xs text-gray-500">环境、步骤、期望结果等请统一填写在该模板中</p>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -397,9 +402,23 @@
         const safeExpected = escapeHtml(bug.expected_result || '');
         const safeActual = escapeHtml(bug.actual_result || '');
         const safeEnvironment = escapeHtml(bug.environment || '');
+        const stepsTrimmed = String(bug.steps_to_reproduce || '').trim();
+        const safeStepsForEdit = escapeHtml(stepsTrimmed ? bug.steps_to_reproduce : DEFAULT_BUG_STEPS_TEMPLATE);
+        const hasLegacyTriField = !!(bug.environment || bug.expected_result || bug.actual_result);
+        const showStepsCompat = !stepsTrimmed && hasLegacyTriField;
+        const legacyCompatBlock = showStepsCompat ? `
+                        <div data-bug-steps-compat="1" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                            <div class="font-semibold text-amber-900 mb-2">历史字段兼容提示</div>
+                            <p class="text-amber-800/90 mb-3 leading-relaxed">该缺陷曾在旧表单中填写「环境 / 期望结果 / 实际结果」独立字段。请将有价值信息合并写入下方「复现步骤」。以下为只读存档，仅供对照：</p>
+                            <div class="space-y-3 text-gray-800">
+                                ${bug.environment ? `<div><div class="text-xs font-semibold text-gray-500 mb-1">环境信息</div><div class="whitespace-pre-wrap rounded-lg bg-white/90 border border-amber-100 px-3 py-2 text-sm">${safeEnvironment}</div></div>` : ''}
+                                ${bug.expected_result ? `<div><div class="text-xs font-semibold text-gray-500 mb-1">期望结果</div><div class="whitespace-pre-wrap rounded-lg bg-white/90 border border-amber-100 px-3 py-2 text-sm">${safeExpected}</div></div>` : ''}
+                                ${bug.actual_result ? `<div><div class="text-xs font-semibold text-gray-500 mb-1">实际结果</div><div class="whitespace-pre-wrap rounded-lg bg-white/90 border border-amber-100 px-3 py-2 text-sm">${safeActual}</div></div>` : ''}
+                            </div>
+                        </div>` : '';
 
         this.modalShow(`
-            <div>
+            <div data-bug-edit-modal="1" class="max-w-5xl w-full max-h-[88vh] overflow-y-auto pr-1">
                 <div class="mb-4">
                     <h3 class="text-2xl font-bold text-gray-900 mb-1">编辑缺陷</h3>
                     <p class="text-xs text-gray-500 uppercase tracking-wider font-bold">ID: #${bug.id}</p>
@@ -420,7 +439,7 @@
                         </div>
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">缺陷描述</label>
-                            <textarea name="description" required rows="3" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm resize-none">${safeDescription}</textarea>
+                            <textarea name="description" required rows="6" class="block w-full min-h-[8rem] rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm resize-y">${safeDescription}</textarea>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -444,29 +463,14 @@
                                 </select>
                             </div>
                         </div>
+                        ${legacyCompatBlock}
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">复现步骤</label>
-                            <textarea name="steps_to_reproduce" rows="2" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm resize-none">${safeSteps}</textarea>
+                            <textarea name="steps_to_reproduce" rows="10" class="block w-full min-h-[14rem] rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm resize-y">${safeStepsForEdit}</textarea>
                         </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">期望结果</label>
-                                <textarea name="expected_result" rows="2" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm resize-none">${safeExpected}</textarea>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">实际结果</label>
-                                <textarea name="actual_result" rows="2" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm resize-none">${safeActual}</textarea>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">环境信息</label>
-                                <input name="environment" value="${safeEnvironment}" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">预估工时 (h)</label>
-                                <input name="time_estimate" type="number" step="0.5" value="${bug.time_estimate || 0}" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm">
-                            </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">预估工时 (h)</label>
+                            <input name="time_estimate" type="number" step="0.5" value="${bug.time_estimate || 0}" class="block w-full rounded-xl border-2 border-gray-200 focus:border-red-500 focus:ring-0 py-2.5 px-4 text-sm">
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -490,6 +494,28 @@
                                 <option value="">不关联</option>
                                 ${(requirements || []).map(r => `<option value="${r.id}" ${String(bug.requirement_id) === String(r.id) ? 'selected' : ''}>${escapeHtml(r.title)}</option>`).join('')}
                             </select>
+                        </div>
+                        <div class="rounded-2xl border border-orange-200 bg-orange-50/60 p-5 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="text-sm font-bold text-gray-900">补充证据</h4>
+                                    <p class="text-xs text-gray-500 mt-1">用于记录异常堆栈、截图和补充说明</p>
+                                </div>
+                                <span class="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-orange-700">内嵌证据</span>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">补充说明</label>
+                                <textarea name="evidence_comment" rows="2" class="block w-full rounded-xl border-2 border-orange-200 bg-white focus:border-orange-400 focus:ring-0 py-3 px-4 text-sm transition-all resize-none" placeholder="例如：仅在预发环境必现"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">异常堆栈</label>
+                                <textarea name="stack_trace" rows="6" class="block w-full rounded-xl border-2 border-orange-200 bg-gray-950 text-gray-100 focus:border-orange-400 focus:ring-0 py-3 px-4 text-sm font-mono transition-all resize-y" placeholder="粘贴异常堆栈、报错日志或关键错误信息"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">截图上传</label>
+                                <input type="file" name="screenshots" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" multiple class="block w-full rounded-xl border-2 border-dashed border-orange-200 bg-white px-4 py-3 text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-orange-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-orange-700 hover:file:bg-orange-200">
+                                <p class="mt-2 text-xs text-gray-500">一期仅支持图片，最多 5 张，建议单张控制在 5MB 内</p>
+                            </div>
                         </div>
                         <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
                             <button type="button" onclick="app.modals.close()" class="px-5 py-2.5 text-gray-700 hover:text-gray-900 text-sm font-semibold hover:bg-gray-100 rounded-lg transition-colors">取消</button>
@@ -523,10 +549,10 @@
                             ${logs.length > 0 ? logs.map(log => `
                                 <div class="bg-white border border-gray-100 p-3 rounded-lg text-sm shadow-sm flex justify-between items-start">
                                     <div>
-                                        <div class="font-semibold text-gray-800">${log.user_name}</div>
+                                        <div class="font-semibold text-gray-800">${escapeHtml(log.user_name)}</div>
                                         <div class="text-gray-500 text-xs">工时日期：${log.date}</div>
                                         <div class="text-gray-400 text-xs">登记时间：${log.created_at ? new Date(log.created_at).toLocaleString('zh-CN') : '-'}</div>
-                                        ${log.description ? `<div class="text-gray-600 mt-1 italic">"${log.description}"</div>` : ''}
+                                        ${log.description ? `<div class="text-gray-600 mt-1 italic">"${escapeHtml(log.description)}"</div>` : ''}
                                     </div>
                                     <div class="font-bold text-red-600 bg-red-50 px-2 py-1 rounded text-xs">
                                         ${log.hours}h
