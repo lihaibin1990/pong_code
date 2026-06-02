@@ -233,7 +233,7 @@
                 } else {
                     this.topContextHtml = `
                         <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-layer-group text-primary-600"></i>
+                            <i class="fa-solid fa-layer-group text-purple-600"></i>
                             <span class="text-gray-900 font-semibold">Mini-Agile</span>
                         </div>
                     `;
