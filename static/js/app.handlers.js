@@ -200,6 +200,9 @@
                 tabs.forEach(b => { b.classList.remove('border-purple-500', 'text-purple-600'); b.classList.add('text-gray-500', 'border-transparent'); });
                 tabs[2].classList.add('border-purple-500', 'text-purple-600');
                 tabs[2].classList.remove('text-gray-500', 'border-transparent');
+                if (this.currentView === 'project_sprints') {
+                    this.viewProjectSprints(this.currentProject.id);
+                }
             } else {
                 alert(res?.error || '记录工时失败，请重试');
                 btn.disabled = false;
@@ -364,6 +367,9 @@
                 tabs[0].classList.add('text-gray-500', 'border-transparent');
                 tabs[1].classList.add('border-purple-500', 'text-purple-600');
                 tabs[1].classList.remove('text-gray-500', 'border-transparent');
+                if (this.currentView === 'board') {
+                    this.viewBoard(this.currentProject.id);
+                }
             } else {
                 alert(res?.error || '记录工作失败，请重试');
                 btn.disabled = false;
@@ -571,6 +577,9 @@
                 tabs[0].classList.add('text-gray-500', 'border-transparent');
                 tabs[1].classList.add('border-red-500', 'text-red-600');
                 tabs[1].classList.remove('text-gray-500', 'border-transparent');
+                if (this.currentView === 'bugs') {
+                    this.viewBugs(this.currentProject.id);
+                }
             } else {
                 alert(res?.error || '记录工时失败，请重试');
                 btn.disabled = false;
