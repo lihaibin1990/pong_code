@@ -321,7 +321,7 @@
                                 <input type="date" name="date" required value="${new Date().toISOString().split('T')[0]}" class="rounded-lg border-gray-300 text-sm focus:ring-purple-500 focus:border-purple-500">
                                 <input type="number" name="hours" step="0.25" min="0.25" placeholder="工时（例如 1.5）" required class="rounded-lg border-gray-300 text-sm focus:ring-purple-500 focus:border-purple-500">
                             </div>
-                            <input type="text" name="description" placeholder="工作说明（可选）" class="rounded-lg border-gray-300 text-sm focus:ring-purple-500 focus:border-purple-500">
+                            <textarea name="description" rows="3" placeholder="工作说明（可选）" class="rounded-lg border-gray-300 text-sm focus:ring-purple-500 focus:border-purple-500 resize-none"></textarea>
                             <button type="submit" class="bg-purple-600 text-white text-sm font-semibold py-2 rounded-lg hover:bg-purple-700 transition-colors">登记工时</button>
                         </form>
                     </div>
