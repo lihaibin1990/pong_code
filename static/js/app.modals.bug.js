@@ -626,6 +626,10 @@
                 </form>
             </div>
         `);
+        setTimeout(() => {
+            const mc = document.getElementById('modal-content');
+            if (mc) mc.scrollTop = mc.scrollHeight;
+        }, 50);
     };
 
 })();
