@@ -313,7 +313,7 @@ def delete_bug(bug_id):
 def add_bug_evidence(bug_id):
     bug = Bug.query.get_or_404(bug_id)
     if not _check_bug_access(bug):
-        return jsonify({'error': 'Access denied'}), 403
+        return jsonify({'error': '无权访问'}), 403
 
     files = request.files.getlist('screenshots')
     comment = request.form.get('comment')
