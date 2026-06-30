@@ -24,18 +24,22 @@ def _check_project_access(project):
 def create_issue(project_id):
     project = Project.query.get_or_404(project_id)
     if not _check_project_access(project):
-        return jsonify({'error': 'Access denied'}), 403
-    active_sprint = project.sprints.filter_by(status='active').first()
+        return jsonify({'error': '无权访问'}), 403
     data = request.get_json()
     if not data.get('title'):
-        return jsonify({'error': 'title 为必填项'}), 400
+        return jsonify({'error': '任务标题为必填项'}), 400
     try:
         priority = parse_int(data.get('priority'), 'priority', default=3)
         time_estimate = parse_float(data.get('time_estimate'), 'time_estimate', default=0)
         assignee_id = parse_nullable_int(data.get('assignee_id'), 'assignee_id')
         requirement_id = parse_nullable_int(data.get('requirement_id'), 'requirement_id')
+        sprint_id = parse_nullable_int(data.get('sprint_id'), 'sprint_id')
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
+    if sprint_id is not None:
+        sprint = Sprint.query.filter_by(id=sprint_id, project_id=project_id).first()
+        if not sprint:
+            return jsonify({'error': '未找到该迭代'}), 404
     # 泳道快速创建任务没有负责人输入，默认归属给创建人，便于后续工时按负责人统计。
     if assignee_id is None:
         assignee_id = current_user.id
@@ -47,7 +51,7 @@ def create_issue(project_id):
         status='todo',
         assignee_id=assignee_id,
         project_id=project_id,
-        sprint_id=active_sprint.id if active_sprint else None,
+        sprint_id=sprint_id,
         requirement_id=requirement_id
     )
     db.session.add(issue)
@@ -132,7 +136,7 @@ def move_issue(issue_id):
     data = request.get_json()
     new_status = data.get('status')
     if new_status not in ['todo', 'doing', 'done']:
-        return jsonify({'error': 'Invalid status'}), 400
+        return jsonify({'error': '无效的状态值'}), 400
     issue = Issue.query.get_or_404(issue_id)
     issue.status = new_status
     db.session.commit()
@@ -151,9 +155,9 @@ def assign_sprint(issue_id):
     if sprint_id is not None:
         sprint = Sprint.query.get(sprint_id)
         if not sprint:
-            return jsonify({'error': 'Sprint not found'}), 404
+            return jsonify({'error': '未找到该迭代'}), 404
         if sprint.project_id != issue.project_id:
-            return jsonify({'error': 'Sprint must belong to the same project'}), 400
+            return jsonify({'error': '迭代必须属于同一项目'}), 400
     issue.sprint_id = sprint_id
     db.session.commit()
     return jsonify({'success': True})
