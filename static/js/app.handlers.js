@@ -632,19 +632,12 @@
             const res = await this.api(`/bugs/${bugId}/worklogs`, 'POST', form);
 
             if (res && !res.error) {
-                await this.modals.editBug(bugId);
-                document.getElementById('bug-tab-details').classList.add('hidden');
-                document.getElementById('bug-tab-time').classList.remove('hidden');
-                const tabs = document.querySelectorAll('#bug-edit-tabs button');
-                tabs[0].classList.remove('border-red-500', 'text-red-600');
-                tabs[0].classList.add('text-gray-500', 'border-transparent');
-                tabs[1].classList.add('border-red-500', 'text-red-600');
-                tabs[1].classList.remove('text-gray-500', 'border-transparent');
-                if (this.currentView === 'bugs') {
+                if (this.currentView === 'board') {
+                    this.viewBoard(this.currentProject.id, this.currentSprintId);
+                } else if (this.currentView === 'bugs') {
                     this.viewBugs(this.currentProject.id);
                 }
-                // 重新打开编辑模态框以刷新数据
-                this.modals.editBug(bugId, 'time');
+                await this.modals.editBug(bugId, 'time');
             } else {
                 alert(res?.error || '记录工时失败，请重试');
                 btn.disabled = false;
