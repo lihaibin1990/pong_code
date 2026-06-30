@@ -234,7 +234,7 @@
             if (res && !res.error) {
                 this.modals.close();
                 if (this.currentView === 'board') {
-                    this.navigate('board', { id: projectId });
+                    this.navigate('board', { id: projectId, ...(this.currentSprintId ? { sprintId: this.currentSprintId } : {}) });
                 } else {
                     this.navigate('project_sprints', { id: projectId });
                 }
@@ -339,7 +339,7 @@
             if (res && !res.error) {
                 this.modals.close();
                 if (this.currentView === 'board') {
-                    this.navigate('board', { id: res.project_id });
+                    this.navigate('board', { id: res.project_id, ...(this.currentSprintId ? { sprintId: this.currentSprintId } : {}) });
                 } else {
                     this.navigate('project_sprints', { id: res.project_id });
                 }
@@ -370,7 +370,7 @@
                 tabs[1].classList.add('border-purple-500', 'text-purple-600');
                 tabs[1].classList.remove('text-gray-500', 'border-transparent');
                 if (this.currentView === 'board') {
-                    this.viewBoard(this.currentProject.id);
+                    this.viewBoard(this.currentProject.id, this.currentSprintId);
                 }
             } else {
                 alert(res?.error || '记录工作失败，请重试');
@@ -615,7 +615,7 @@
             this.modals.close();
             // 根据当前视图决定导航
             if (this.currentView === 'board') {
-                this.navigate('board', { id: res.project_id });
+                this.navigate('board', { id: res.project_id, ...(this.currentSprintId ? { sprintId: this.currentSprintId } : {}) });
             } else {
                 this.navigate('bugs', { id: res.project_id });
             }
@@ -681,7 +681,7 @@
             if (res && !res.error) {
                 // 根据当前视图决定导航
                 if (this.currentView === 'board') {
-                    this.navigate('board', { id: projectId });
+                    this.navigate('board', { id: projectId, ...(this.currentSprintId ? { sprintId: this.currentSprintId } : {}) });
                 } else {
                     this.navigate('bugs', { id: projectId });
                 }
