@@ -464,6 +464,7 @@
                 submitIssue: this.handlersSubmitIssue.bind(this),
                 submitWorkItem: this.handlersSubmitWorkItem.bind(this),
                 updateIssue: this.handlersUpdateIssue.bind(this),
+                deleteIssue: this.handlersDeleteIssue.bind(this),
                 submitWorkLog: this.handlersSubmitWorkLog.bind(this),
                 createRequirement: this.handlersCreateRequirement.bind(this),
                 updateRequirement: this.handlersUpdateRequirement.bind(this),

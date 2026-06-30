@@ -664,6 +664,25 @@
             }
         },
 
+        async handlersDeleteIssue(issueId, projectId) {
+            if (!confirm('确定要删除这个任务吗？此操作不可撤销。')) {
+                return;
+            }
+
+            const res = await this.api(`/issues/${issueId}`, 'DELETE');
+
+            if (res && !res.error) {
+                this.modals.close();
+                if (this.currentView === 'board') {
+                    this.navigate('board', { id: projectId, ...(this.currentSprintId ? { sprintId: this.currentSprintId } : {}) });
+                } else {
+                    this.navigate('project_sprints', { id: projectId });
+                }
+            } else {
+                alert(res?.error || '删除任务失败，请重试');
+            }
+        },
+
         async handlersDeleteBug(bugId, projectId) {
             if (!confirm('确定要删除这个缺陷吗？此操作不可撤销。')) {
                 return;
