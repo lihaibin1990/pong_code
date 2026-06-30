@@ -19,6 +19,14 @@ def _check_project_access(project):
     return is_owner or is_member
 
 
+def _check_org_admin(org):
+    is_owner = org.owner_id == current_user.id
+    is_admin = db.session.query(organization_members).filter_by(
+        user_id=current_user.id, organization_id=org.id, role='admin'
+    ).first() is not None
+    return is_owner or is_admin
+
+
 @bp.route('/projects/<int:project_id>/issues', methods=['POST'])
 @login_required
 def create_issue(project_id):
@@ -103,6 +111,18 @@ def update_issue(issue_id):
             return jsonify({'error': str(exc)}), 400
     db.session.commit()
     return jsonify(issue.to_dict())
+
+
+@bp.route('/issues/<int:issue_id>', methods=['DELETE'])
+@login_required
+def delete_issue(issue_id):
+    issue = Issue.query.get_or_404(issue_id)
+    if not _check_org_admin(issue.project.organization):
+        return jsonify({'error': '无权访问'}), 403
+    WorkLog.query.filter_by(issue_id=issue.id).delete()
+    db.session.delete(issue)
+    db.session.commit()
+    return jsonify({'success': True})
 
 
 @bp.route('/issues/<int:issue_id>/worklogs', methods=['POST'])

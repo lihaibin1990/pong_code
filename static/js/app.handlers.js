@@ -234,7 +234,7 @@
             if (res && !res.error) {
                 this.modals.close();
                 if (this.currentView === 'board') {
-                    this.navigate('board', { id: projectId });
+                    this.navigate('board', { id: projectId, ...(this.currentSprintId ? { sprintId: this.currentSprintId } : {}) });
                 } else {
                     this.navigate('project_sprints', { id: projectId });
                 }
@@ -339,7 +339,7 @@
             if (res && !res.error) {
                 this.modals.close();
                 if (this.currentView === 'board') {
-                    this.navigate('board', { id: res.project_id });
+                    this.navigate('board', { id: res.project_id, ...(this.currentSprintId ? { sprintId: this.currentSprintId } : {}) });
                 } else {
                     this.navigate('project_sprints', { id: res.project_id });
                 }
@@ -370,7 +370,7 @@
                 tabs[1].classList.add('border-purple-500', 'text-purple-600');
                 tabs[1].classList.remove('text-gray-500', 'border-transparent');
                 if (this.currentView === 'board') {
-                    this.viewBoard(this.currentProject.id);
+                    this.viewBoard(this.currentProject.id, this.currentSprintId);
                 }
             } else {
                 alert(res?.error || '记录工作失败，请重试');
@@ -615,7 +615,7 @@
             this.modals.close();
             // 根据当前视图决定导航
             if (this.currentView === 'board') {
-                this.navigate('board', { id: res.project_id });
+                this.navigate('board', { id: res.project_id, ...(this.currentSprintId ? { sprintId: this.currentSprintId } : {}) });
             } else {
                 this.navigate('bugs', { id: res.project_id });
             }
@@ -632,19 +632,12 @@
             const res = await this.api(`/bugs/${bugId}/worklogs`, 'POST', form);
 
             if (res && !res.error) {
-                await this.modals.editBug(bugId);
-                document.getElementById('bug-tab-details').classList.add('hidden');
-                document.getElementById('bug-tab-time').classList.remove('hidden');
-                const tabs = document.querySelectorAll('#bug-edit-tabs button');
-                tabs[0].classList.remove('border-red-500', 'text-red-600');
-                tabs[0].classList.add('text-gray-500', 'border-transparent');
-                tabs[1].classList.add('border-red-500', 'text-red-600');
-                tabs[1].classList.remove('text-gray-500', 'border-transparent');
-                if (this.currentView === 'bugs') {
+                if (this.currentView === 'board') {
+                    this.viewBoard(this.currentProject.id, this.currentSprintId);
+                } else if (this.currentView === 'bugs') {
                     this.viewBugs(this.currentProject.id);
                 }
-                // 重新打开编辑模态框以刷新数据
-                this.modals.editBug(bugId, 'time');
+                await this.modals.editBug(bugId, 'time');
             } else {
                 alert(res?.error || '记录工时失败，请重试');
                 btn.disabled = false;
@@ -671,6 +664,25 @@
             }
         },
 
+        async handlersDeleteIssue(issueId, projectId) {
+            if (!confirm('确定要删除这个任务吗？此操作不可撤销。')) {
+                return;
+            }
+
+            const res = await this.api(`/issues/${issueId}`, 'DELETE');
+
+            if (res && !res.error) {
+                this.modals.close();
+                if (this.currentView === 'board') {
+                    this.navigate('board', { id: projectId, ...(this.currentSprintId ? { sprintId: this.currentSprintId } : {}) });
+                } else {
+                    this.navigate('project_sprints', { id: projectId });
+                }
+            } else {
+                alert(res?.error || '删除任务失败，请重试');
+            }
+        },
+
         async handlersDeleteBug(bugId, projectId) {
             if (!confirm('确定要删除这个缺陷吗？此操作不可撤销。')) {
                 return;
@@ -681,7 +693,7 @@
             if (res && !res.error) {
                 // 根据当前视图决定导航
                 if (this.currentView === 'board') {
-                    this.navigate('board', { id: projectId });
+                    this.navigate('board', { id: projectId, ...(this.currentSprintId ? { sprintId: this.currentSprintId } : {}) });
                 } else {
                     this.navigate('bugs', { id: projectId });
                 }

@@ -3,6 +3,7 @@
     MiniAgile.views = MiniAgile.views || {};
 
         MiniAgile.views.viewBoard = async function(id, sprintId) {
+            this.currentSprintId = sprintId || null;
             const url = sprintId ? `/projects/${id}/board?sprint_id=${sprintId}` : `/projects/${id}/board`;
             const data = await this.api(url);
             if (!data) {

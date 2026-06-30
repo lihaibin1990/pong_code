@@ -193,11 +193,16 @@
                                 <input name="time_estimate" type="number" step="0.5" value="${i.time_estimate}" class="block w-full rounded-xl border-2 border-gray-200 focus:border-purple-500 focus:ring-0 py-2.5 px-4 text-sm">
                             </div>
                         </div>
-                        <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
-                            <button type="button" onclick="app.modals.close()" class="px-5 py-2.5 text-gray-700 hover:text-gray-900 text-sm font-semibold hover:bg-gray-100 rounded-lg transition-colors">取消</button>
-                            <button type="submit" data-testid="edit-issue-save-button" class="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-2.5 rounded-lg text-sm font-semibold shadow-lg shadow-purple-500/30 transition-all hover:scale-105">
-                                <i class="fa-solid fa-save mr-2"></i>保存更改
+                        <div class="flex justify-between items-center pt-4 border-t border-gray-100">
+                            <button type="button" onclick="app.handlers.deleteIssue(${i.id}, ${i.project_id})" class="text-red-600 hover:text-red-800 text-sm font-semibold hover:bg-red-50 px-3 py-2.5 rounded-lg transition-colors">
+                                <i class="fa-solid fa-trash mr-1"></i>删除任务
                             </button>
+                            <div class="flex gap-3">
+                                <button type="button" onclick="app.modals.close()" class="px-5 py-2.5 text-gray-700 hover:text-gray-900 text-sm font-semibold hover:bg-gray-100 rounded-lg transition-colors">取消</button>
+                                <button type="submit" data-testid="edit-issue-save-button" class="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-2.5 rounded-lg text-sm font-semibold shadow-lg shadow-purple-500/30 transition-all hover:scale-105">
+                                    <i class="fa-solid fa-save mr-2"></i>保存更改
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
