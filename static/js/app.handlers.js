@@ -44,6 +44,66 @@
             }
         },
 
+        async handlersForgotPassword(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]');
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = '发送中...';
+
+            const form = Object.fromEntries(new FormData(e.target));
+            const res = await this.api('/auth/forgot-password', 'POST', { email: form.email });
+
+            btn.disabled = false;
+            btn.innerText = originalText;
+
+            if (res && res.success) {
+                alert(res.message || '如果该邮箱已注册，重置链接已发送到该邮箱');
+                this.navigate('login');
+            } else {
+                alert(res?.error || '发送重置链接失败');
+            }
+        },
+
+        async handlersResetPassword(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]');
+            const originalText = btn.innerText;
+            const form = Object.fromEntries(new FormData(e.target));
+
+            if (!form.password || form.password.length < 6) {
+                alert('密码至少 6 位');
+                return;
+            }
+            if (form.password !== form.password_confirm) {
+                alert('两次输入的密码不一致');
+                return;
+            }
+            if (!this.resetToken) {
+                alert('重置链接已失效，请重新申请');
+                this.navigate('forgot_password');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = '提交中...';
+
+            const res = await this.api('/auth/reset-password', 'POST', {
+                token: this.resetToken,
+                password: form.password
+            });
+
+            if (res && res.success) {
+                this.resetToken = null;
+                alert(res.message || '密码已重置，请使用新密码登录');
+                this.navigate('login');
+            } else {
+                alert(res?.error || '重置失败');
+                btn.disabled = false;
+                btn.innerText = originalText;
+            }
+        },
+
         async handlersSubmitOrg(e) {
             e.preventDefault();
             const btn = e.target.querySelector('button[type="submit"]');

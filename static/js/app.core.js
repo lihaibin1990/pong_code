@@ -21,6 +21,7 @@
                 },
                 showModal: false,
                 isLoading: true,
+                resetToken: null,
                 handlers: {},
                 modals: {}
             };
@@ -69,6 +70,15 @@
             // --- Navigation & Auth ---
             async init() {
                 this.isLoading = true;
+
+                const resetToken = new URLSearchParams(location.search).get('reset_token');
+                if (resetToken) {
+                    this.resetToken = resetToken;
+                    history.replaceState(null, '', location.pathname);
+                    this.navigate('reset_password');
+                    return;
+                }
+
                 let timeoutId;
                 const timeoutPromise = new Promise((_, reject) => {
                     timeoutId = setTimeout(() => reject(new Error('认证状态获取超时')), 10000);
@@ -105,9 +115,21 @@
                 document.body.classList.toggle('bg-white', isAuthView);
             },
 
+            toggleResetPasswordVisibility() {
+                const pwd = document.getElementById('reset-password');
+                const confirm = document.getElementById('reset-password-confirm');
+                if (!pwd) return;
+                const show = pwd.type === 'password';
+                pwd.type = show ? 'text' : 'password';
+                if (confirm) confirm.type = show ? 'text' : 'password';
+                document.querySelectorAll('[data-eye-icon]').forEach((el) => {
+                    el.className = show ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+                });
+            },
+
             navigate(view, data = {}) {
                 this.currentView = view;
-                this.isLoading = !['login', 'register'].includes(view);
+                this.isLoading = !['login', 'register', 'forgot_password', 'reset_password'].includes(view);
 
                 if (view === 'dashboard') {
                     this.currentProject = null;
@@ -124,6 +146,14 @@
                     case 'register':
                         this.setAuthLayout(true);
                         this.viewRegister();
+                        break;
+                    case 'forgot_password':
+                        this.setAuthLayout(true);
+                        this.viewForgotPassword();
+                        break;
+                    case 'reset_password':
+                        this.setAuthLayout(true);
+                        this.viewResetPassword();
                         break;
                     case 'dashboard':
                         this.setAuthLayout(false);
@@ -454,6 +484,8 @@
             this.handlers = {
                 login: this.handlersLogin.bind(this),
                 register: this.handlersRegister.bind(this),
+                forgotPassword: this.handlersForgotPassword.bind(this),
+                resetPassword: this.handlersResetPassword.bind(this),
                 submitOrg: this.handlersSubmitOrg.bind(this),
                 joinOrg: this.handlersJoinOrg.bind(this),
                 submitProject: this.handlersSubmitProject.bind(this),
