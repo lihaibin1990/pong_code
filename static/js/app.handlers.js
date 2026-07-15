@@ -18,7 +18,7 @@
                 this.renderNav();
                 this.navigate('dashboard');
             } else {
-                alert((res && res.error) ? res.error : '登录失败');
+                alert((res && res.error) ? res.error : '账号或密码错误');
                 btn.disabled = false;
                 btn.innerText = originalText;
             }
