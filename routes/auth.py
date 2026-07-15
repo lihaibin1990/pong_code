@@ -60,11 +60,14 @@ def auth_status():
 def login():
     data = request.get_json()
     if not data or 'username' not in data or 'password' not in data:
-        return jsonify({'error': '请输入用户名和密码'}), 400
+        return jsonify({'error': '请输入账号和密码'}), 400
 
-    user = User.query.filter_by(username=data['username']).first()
+    identifier = (data.get('username') or '').strip()
+    user = User.query.filter_by(username=identifier).first()
+    if user is None:
+        user = User.query.filter_by(email=identifier).first()
     if user is None or not user.check_password(data['password']):
-        return jsonify({'error': '用户名或密码错误'}), 401
+        return jsonify({'error': '账号或密码错误'}), 401
 
     login_user(user, remember=data.get('remember_me', False))
     return jsonify({'success': True, 'user': user.to_dict()})
