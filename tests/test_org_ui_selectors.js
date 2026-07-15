@@ -16,7 +16,11 @@ function baseContext() {
         Date,
         URLSearchParams: globalThis.URLSearchParams,
         window: {
-            MiniAgile: { modals: {}, views: {} }
+            MiniAgile: { modals: {}, views: {} },
+            localStorage: {
+                getItem() { return null; },
+                setItem() {}
+            }
         }
     };
 }
@@ -24,6 +28,15 @@ function baseContext() {
 function countTestId(html, testId) {
     const matches = html.match(new RegExp(`data-testid="${testId}"`, 'g'));
     return matches ? matches.length : 0;
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 test('仪表盘：页头入口唯一，空态入口使用独立 test id', async () => {
@@ -99,16 +112,53 @@ test('创建项目弹窗：关键主字段具备稳定且唯一的 data-testid',
     let createProjectModalHtml = '';
 
     const fakeContext = {
+        async api(url) {
+            if (url === '/organizations/42/teams') {
+                return { teams: [{ id: 7, name: '研发团队' }] };
+            }
+            return null;
+        },
         modalShow(html) {
             createProjectModalHtml = html;
         }
     };
 
-    context.window.MiniAgile.modals.modalCreateProject.call(fakeContext, 42);
+    await context.window.MiniAgile.modals.modalCreateProject.call(fakeContext, 42);
 
     assert.equal(countTestId(createProjectModalHtml, 'create-project-name-input'), 1, '创建项目名称输入框 test id 应唯一');
+    assert.equal(countTestId(createProjectModalHtml, 'create-project-team-select'), 1, '创建项目团队下拉框 test id 应唯一');
     assert.equal(countTestId(createProjectModalHtml, 'create-project-description-input'), 1, '创建项目描述输入框 test id 应唯一');
     assert.equal(countTestId(createProjectModalHtml, 'create-project-submit-button'), 1, '创建项目提交按钮 test id 应唯一');
+});
+
+test('编辑项目弹窗：预填基本信息并提供稳定的 data-testid', async () => {
+    const context = baseContext();
+    loadScript('static/js/app.modals.org.js', context);
+    let editProjectModalHtml = '';
+    const fakeContext = {
+        async api(url) {
+            if (url === '/organizations/42/teams') {
+                return { teams: [{ id: 7, name: '研发团队' }, { id: 8, name: '产品团队' }] };
+            }
+            return null;
+        },
+        modalShow(html) { editProjectModalHtml = html; },
+        escapeHtml
+    };
+
+    await context.window.MiniAgile.modals.modalEditProject.call(fakeContext, {
+        id: 9,
+        name: '项目甲',
+        description: '项目描述',
+        team_id: 7
+    }, 42);
+
+    assert.equal(countTestId(editProjectModalHtml, 'edit-project-name-input'), 1);
+    assert.equal(countTestId(editProjectModalHtml, 'edit-project-team-select'), 1);
+    assert.equal(countTestId(editProjectModalHtml, 'edit-project-description-input'), 1);
+    assert.equal(countTestId(editProjectModalHtml, 'edit-project-submit-button'), 1);
+    assert.match(editProjectModalHtml, /value="项目甲"/);
+    assert.match(editProjectModalHtml, /value="7" selected/);
 });
 
 test('组织列表页：页头入口唯一，空态入口使用独立 test id', async () => {
@@ -153,11 +203,14 @@ test('组织详情页：页头与空态入口使用不同 test id', async () => 
             if (url === '/organizations/42') {
                 return {
                     organization: { id: 42, name: '测试组织' },
+                    teams: [{ id: 10, name: '产品团队' }],
                     projects: [
                         {
                             id: 1,
                             name: '项目甲',
                             description: '描述',
+                            team_id: 10,
+                            team_name: '产品团队',
                             issues_count: 0,
                             sprints_count: 0
                         }
@@ -172,12 +225,15 @@ test('组织详情页：页头与空态入口使用不同 test id', async () => 
         renderSidebar() {},
         renderTopContext() {},
         isLoading: true,
-        currentOrg: null
+        currentOrg: null,
+        escapeHtml
     };
 
     await context.window.MiniAgile.views.viewOrgDetails.call(fakeContext, 42);
 
     assert.equal(countTestId(orgDetailsHtml, 'create-project-button'), 1, '组织详情页头 create-project-button 应唯一');
+    assert.equal(countTestId(orgDetailsHtml, 'project-team-filter'), 1, '组织详情项目列表应有团队过滤器');
+    assert.equal(countTestId(orgDetailsHtml, 'project-team-badge'), 1, '项目卡片应显示团队标签');
     assert.equal(countTestId(orgDetailsHtml, 'create-project-empty-button'), 0, '有项目时不应渲染空态 create-project-empty-button');
 });
 
@@ -192,6 +248,7 @@ test('组织详情页空态：使用独立的 create-project-empty-button', asyn
             if (url === '/organizations/77') {
                 return {
                     organization: { id: 77, name: '空组织' },
+                    teams: [],
                     projects: []
                 };
             }
@@ -203,7 +260,8 @@ test('组织详情页空态：使用独立的 create-project-empty-button', asyn
         renderSidebar() {},
         renderTopContext() {},
         isLoading: true,
-        currentOrg: null
+        currentOrg: null,
+        escapeHtml
     };
 
     await context.window.MiniAgile.views.viewOrgDetails.call(fakeContext, 77);
@@ -330,8 +388,24 @@ test('看板：泳道容器使用唯一 test id，列通过局部作用域和 da
                     swimlanes: [
                         {
                             requirement: { id: 10, title: '需求A', priority: 2 },
-                            todo: [],
-                            doing: [],
+                            todo: [{
+                                id: 21,
+                                item_type: 'task',
+                                title: '快捷登记任务',
+                                priority: 3,
+                                time_spent: 1,
+                                time_estimate: 4,
+                                assignee_name: '测试员'
+                            }],
+                            doing: [{
+                                id: 22,
+                                item_type: 'bug',
+                                title: '示例缺陷',
+                                severity: 3,
+                                time_spent: 0,
+                                time_estimate: 2,
+                                reporter_name: '报告人'
+                            }],
                             done: []
                         },
                         {
@@ -361,6 +435,47 @@ test('看板：泳道容器使用唯一 test id，列通过局部作用域和 da
     assert.equal(countTestId(boardHtml, 'board-column-doing'), 0, '列级别不应再复用相同 test id');
     assert.equal(countTestId(boardHtml, 'board-column-done'), 0, '列级别不应再复用相同 test id');
     assert.match(boardHtml, /data-testid="board-swimlane-req-10"[\s\S]*data-status="todo"/, '应可在泳道作用域内通过 data-status 选待办列');
+    assert.equal((boardHtml.match(/data-action="quick-log-work"/g) || []).length, 1, '仅任务卡片应显示工时登记快捷按钮');
+    assert.match(boardHtml, /app\.modals\.editIssue\(21, 'time'\)/, '快捷按钮应直接打开任务工时页签');
+});
+
+test('编辑任务弹窗：支持直接打开工时页签', async () => {
+    const context = baseContext();
+    loadScript('static/js/app.modals.issue.js', context);
+    let modalHtml = '';
+    const fakeContext = {
+        currentSprintId: 1,
+        async api(url) {
+            if (url === '/issues/21') {
+                return {
+                    issue: {
+                        id: 21,
+                        project_id: 7,
+                        sprint_id: 1,
+                        title: '快捷登记任务',
+                        description: '',
+                        priority: 3,
+                        status: 'doing',
+                        assignee_id: null,
+                        requirement_id: null,
+                        time_estimate: 4,
+                        time_spent: 1
+                    },
+                    work_logs: []
+                };
+            }
+            if (url.includes('/projects/7/board')) return { swimlanes: [] };
+            if (url === '/users/search') return [];
+            return null;
+        },
+        modalShow(html) { modalHtml = html; }
+    };
+
+    await context.window.MiniAgile.modals.modalEditIssue.call(fakeContext, 21, 'time');
+
+    assert.match(modalHtml, /id="tab-details" class="hidden"/);
+    assert.match(modalHtml, /id="tab-time" class=""/);
+    assert.match(modalHtml, /记录工时/);
 });
 
 test('缺陷列表、新建缺陷弹窗与详情证据区：关键锚点', async () => {
