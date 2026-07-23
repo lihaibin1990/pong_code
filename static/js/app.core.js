@@ -8,6 +8,8 @@
                 currentView: 'login',
                 currentOrg: null,
                 currentProject: null,
+                currentTeam: null,
+                currentSprintId: null,
                 navHtml: '',
                 sidebarHtml: '',
                 topContextHtml: '',
@@ -74,8 +76,8 @@
                 const resetToken = new URLSearchParams(location.search).get('reset_token');
                 if (resetToken) {
                     this.resetToken = resetToken;
-                    history.replaceState(null, '', location.pathname);
-                    this.navigate('reset_password');
+                    history.replaceState(null, '', `${location.pathname}#/reset-password`);
+                    this.navigate('reset_password', {}, { replace: true });
                     return;
                 }
 
@@ -92,14 +94,18 @@
                     if (res && res.authenticated) {
                         this.user = res.user;
                         this.renderNav();
-                        this.navigate('dashboard');
+                        const route = this.urlToRoute(window.location.hash);
+                        const target = this.isPublicView(route.view) || !window.location.hash ? { view: 'dashboard', data: {} } : route;
+                        this.navigate(target.view, target.data, { replace: true });
                     } else {
-                        this.navigate('login');
+                        const route = this.urlToRoute(window.location.hash);
+                        const targetView = this.isPublicView(route.view) ? route.view : 'login';
+                        this.navigate(targetView, route.data || {}, { replace: true });
                     }
                 } catch (err) {
                     clearTimeout(timeoutId);
                     console.error('Init error:', err);
-                    this.navigate('login');
+                    this.navigate('login', {}, { replace: true });
                 }
             },
 
@@ -113,6 +119,129 @@
 
             setAuthLayout(isAuthView) {
                 document.body.classList.toggle('bg-white', isAuthView);
+            },
+
+            routeToUrl(view, data = {}) {
+                const params = new URLSearchParams(data.params || {});
+                const pathId = (value) => encodeURIComponent(String(value ?? ''));
+                const withQuery = (path) => {
+                    const query = params.toString();
+                    return `#${path}${query ? `?${query}` : ''}`;
+                };
+
+                switch (view) {
+                    case 'login': return '#/login';
+                    case 'register': return '#/register';
+                    case 'forgot_password': return '#/forgot-password';
+                    case 'reset_password': return '#/reset-password';
+                    case 'profile': return '#/profile';
+                    case 'dashboard': return '#/dashboard';
+                    case 'workbench': return withQuery('/workbench');
+                    case 'organizations': return '#/organizations';
+                    case 'org_details': return `#/organizations/${pathId(data.id)}`;
+                    case 'org_members': return `#/organizations/${pathId(data.id)}/members`;
+                    case 'teams': return `#/organizations/${pathId(data.id)}/teams`;
+                    case 'team_details': return `#/teams/${pathId(data.id)}`;
+                    case 'project_sprints': return `#/projects/${pathId(data.id)}/sprints`;
+                    case 'board': {
+                        const boardParams = new URLSearchParams();
+                        if (data.sprintId) boardParams.set('sprintId', data.sprintId);
+                        const query = boardParams.toString();
+                        return `#/projects/${pathId(data.id)}/board${query ? `?${query}` : ''}`;
+                    }
+                    case 'requirements': return withQuery(`/projects/${pathId(data.id)}/requirements`);
+                    case 'bugs': return withQuery(`/projects/${pathId(data.id)}/bugs`);
+                    default: return '#/login';
+                }
+            },
+
+            urlToRoute(hash = window.location.hash) {
+                const normalized = hash && hash.startsWith('#') ? hash.slice(1) : (hash || '');
+                const [pathPart, queryPart = ''] = normalized.split('?');
+                const path = pathPart || '/dashboard';
+                const parts = path.split('/').filter(Boolean).map(part => {
+                    try {
+                        return decodeURIComponent(part);
+                    } catch (error) {
+                        return part;
+                    }
+                });
+                const query = new URLSearchParams(queryPart);
+                const paramsObject = Object.fromEntries(query.entries());
+                const idValue = (value) => {
+                    if (!/^\d+$/.test(String(value || ''))) return null;
+                    return Number(value);
+                };
+
+                if (parts.length === 0) return { view: 'dashboard', data: {} };
+                if (parts[0] === 'login') return { view: 'login', data: {} };
+                if (parts[0] === 'register') return { view: 'register', data: {} };
+                if (parts[0] === 'forgot-password') return { view: 'forgot_password', data: {} };
+                if (parts[0] === 'reset-password') return { view: 'reset_password', data: {} };
+                if (parts[0] === 'profile') return { view: 'profile', data: {} };
+                if (parts[0] === 'dashboard') return { view: 'dashboard', data: {} };
+                if (parts[0] === 'workbench') return { view: 'workbench', data: { params: paramsObject } };
+
+                if (parts[0] === 'organizations') {
+                    if (parts.length === 1) return { view: 'organizations', data: {} };
+                    const id = idValue(parts[1]);
+                    if (!id) return { view: 'dashboard', data: {} };
+                    if (parts[2] === 'members') return { view: 'org_members', data: { id } };
+                    if (parts[2] === 'teams') return { view: 'teams', data: { id } };
+                    return { view: 'org_details', data: { id } };
+                }
+
+                if (parts[0] === 'teams' && parts[1]) {
+                    const id = idValue(parts[1]);
+                    return id ? { view: 'team_details', data: { id } } : { view: 'dashboard', data: {} };
+                }
+
+                if (parts[0] === 'projects' && parts[1]) {
+                    const id = idValue(parts[1]);
+                    if (!id) return { view: 'dashboard', data: {} };
+                    if (parts[2] === 'board') {
+                        const sprintId = query.get('sprintId');
+                        const parsedSprintId = sprintId ? idValue(sprintId) : null;
+                        return { view: 'board', data: { id, ...(parsedSprintId ? { sprintId: parsedSprintId } : {}) } };
+                    }
+                    if (parts[2] === 'requirements') return { view: 'requirements', data: { id, params: paramsObject } };
+                    if (parts[2] === 'bugs') return { view: 'bugs', data: { id, params: paramsObject } };
+                    return { view: 'project_sprints', data: { id } };
+                }
+
+                return { view: 'dashboard', data: {} };
+            },
+
+            writeRouteToHistory(view, data = {}, options = {}) {
+                if (options.skipHistory) return;
+                const nextHash = this.routeToUrl(view, data);
+                const currentUrl = `${location.pathname}${location.search}${location.hash}`;
+                const nextUrl = `${location.pathname}${location.search}${nextHash}`;
+                if (currentUrl === nextUrl) return;
+                const state = { view, data };
+                if (options.replace) {
+                    history.replaceState(state, '', nextUrl);
+                } else {
+                    history.pushState(state, '', nextUrl);
+                }
+            },
+
+            handleHistoryChange() {
+                const route = this.urlToRoute(window.location.hash);
+                this.navigate(route.view, route.data, { skipHistory: true });
+            },
+
+            isPublicView(view) {
+                return ['login', 'register', 'forgot_password', 'reset_password'].includes(view);
+            },
+
+            escapeHtml(value) {
+                return String(value ?? '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
             },
 
             toggleResetPasswordVisibility() {
@@ -161,15 +290,33 @@
                 }, 3000);
             },
 
-            navigate(view, data = {}) {
+            navigate(view, data = {}, options = {}) {
+                this.writeRouteToHistory(view, data, options);
                 this.currentView = view;
                 this.isLoading = !['login', 'register', 'forgot_password', 'reset_password'].includes(view);
 
-                if (view === 'dashboard') {
+                if (view === 'dashboard' || view === 'workbench') {
                     this.currentProject = null;
                     this.currentOrg = null;
+                    this.currentTeam = null;
+                    this.currentSprintId = null;
                     this.renderSidebar();
                     this.renderTopContext();
+                }
+
+                if (view === 'organizations') {
+                    this.currentProject = null;
+                    this.currentOrg = null;
+                    this.currentTeam = null;
+                    this.currentSprintId = null;
+                }
+
+                if (!['team_details'].includes(view)) {
+                    this.currentTeam = null;
+                }
+
+                if (view !== 'board') {
+                    this.currentSprintId = null;
                 }
 
                 switch (view) {
@@ -192,6 +339,14 @@
                     case 'dashboard':
                         this.setAuthLayout(false);
                         this.viewDashboard();
+                        break;
+                    case 'workbench':
+                        this.setAuthLayout(false);
+                        this.viewWorkbench(data.params);
+                        break;
+                    case 'profile':
+                        this.setAuthLayout(false);
+                        this.viewProfile();
                         break;
                     case 'org_details':
                         this.setAuthLayout(false);
@@ -238,6 +393,9 @@
 
             renderNav() {
                 if (this.user) {
+                    const username = this.escapeHtml(this.user.username || '用户');
+                    const email = this.escapeHtml(this.user.email || '');
+                    const initial = this.escapeHtml((this.user.username || '用').charAt(0).toUpperCase());
                     this.navHtml = `
                         <div class="flex items-center gap-3">
                             <!-- Notifications -->
@@ -250,20 +408,20 @@
                             <div class="relative group">
                                 <button class="flex items-center text-sm font-medium text-gray-700 hover:text-purple-700 focus:outline-none transition-colors gap-2">
                                     <span class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 text-white flex items-center justify-center font-bold shadow-lg shadow-purple-500/30">
-                                        ${this.user.username[0].toUpperCase()}
+                                        ${initial}
                                     </span>
-                                    <span class="hidden sm:inline font-semibold">${this.user.username}</span>
+                                    <span class="hidden sm:inline font-semibold">${username}</span>
                                     <i class="fa-solid fa-chevron-down text-xs text-gray-400"></i>
                                 </button>
                                 <div class="absolute right-0 top-full pt-2 w-56 hidden group-hover:block z-50">
                                     <div class="bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
                                         <div class="px-4 py-3 bg-gradient-to-r from-purple-50 to-purple-100 border-b border-purple-200">
                                             <p class="text-xs text-purple-600 uppercase tracking-wider font-bold mb-1">登录账号</p>
-                                            <p class="text-sm font-semibold text-gray-900">${this.user.username}</p>
-                                            <p class="text-xs text-gray-600">${this.user.email || ''}</p>
+                                            <p class="text-sm font-semibold text-gray-900">${username}</p>
+                                            <p class="text-xs text-gray-600">${email}</p>
                                         </div>
                                         <div class="py-2">
-                                            <a href="#" class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors">
+                                            <a href="#/profile" data-testid="profile-menu-link" onclick="app.navigate('profile'); return false;" class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors">
                                                 <i class="fa-solid fa-user w-5 mr-2"></i>
                                                 <span>个人资料</span>
                                             </a>
@@ -289,31 +447,69 @@
             },
 
             renderTopContext() {
-                if (this.currentProject) {
-                    const orgName = this.currentOrg ? this.currentOrg.name : '未知';
-                    this.topContextHtml = `
-                        <div class="flex items-center space-x-2">
-                            <span class="w-6 h-6 rounded bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">${orgName[0] || '?'}</span>
-                            <span class="text-gray-500 hover:text-gray-900 cursor-pointer transition-colors" onclick="app.navigate('dashboard')">${orgName}</span>
-                            <i class="fa-solid fa-chevron-right text-[10px] text-gray-400"></i>
-                            <span class="text-gray-900 font-semibold">${this.currentProject.name}</span>
-                        </div>
-                    `;
-                } else if (this.currentOrg) {
-                    this.topContextHtml = `
-                        <div class="flex items-center space-x-2">
-                            <span class="w-6 h-6 rounded bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">${this.currentOrg.name[0]}</span>
-                            <span class="text-gray-900 font-semibold">${this.currentOrg.name}</span>
-                        </div>
-                    `;
-                } else {
-                    this.topContextHtml = `
-                        <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-layer-group text-purple-600"></i>
-                            <span class="text-gray-900 font-semibold">Mini-Agile</span>
-                        </div>
-                    `;
+                const items = this.getBreadcrumbs();
+                this.topContextHtml = this.renderBreadcrumbs(items);
+            },
+
+            getBreadcrumbs() {
+                const home = { label: 'PongCode', icon: 'fa-layer-group', view: 'dashboard' };
+                const orgList = { label: '组织', view: 'organizations' };
+                const currentOrg = this.currentOrg ? {
+                    label: this.escapeHtml(this.currentOrg.name || '组织'),
+                    view: this.currentOrg.id ? 'org_details' : null,
+                    data: this.currentOrg.id ? { id: this.currentOrg.id } : {}
+                } : null;
+                const currentProject = this.currentProject ? {
+                    label: this.escapeHtml(this.currentProject.name || '项目'),
+                    view: this.currentProject.id ? 'project_sprints' : null,
+                    data: this.currentProject.id ? { id: this.currentProject.id } : {}
+                } : null;
+
+                switch (this.currentView) {
+                    case 'dashboard':
+                        return [home];
+                    case 'workbench':
+                        return [home, { label: '工作台', current: true }];
+                    case 'profile':
+                        return [home, { label: '个人资料', current: true }];
+                    case 'organizations':
+                        return [home, { ...orgList, current: true }];
+                    case 'org_details':
+                        return [home, orgList, currentOrg || { label: '组织' }, { label: '项目', current: true }];
+                    case 'org_members':
+                        return [home, orgList, currentOrg || { label: '组织' }, { label: '成员', current: true }];
+                    case 'teams':
+                        return [home, orgList, currentOrg || { label: '组织' }, { label: '团队', current: true }];
+                    case 'team_details':
+                        return [home, orgList, currentOrg || { label: '组织' }, currentOrg?.id ? { label: '团队', view: 'teams', data: { id: currentOrg.id } } : { label: '团队' }, { label: this.escapeHtml(this.currentTeam?.name || '团队详情'), current: true }];
+                    case 'project_sprints':
+                        return [home, orgList, currentOrg || { label: '组织' }, currentProject || { label: '项目' }, { label: '迭代', current: true }];
+                    case 'board':
+                        return [home, orgList, currentOrg || { label: '组织' }, currentProject || { label: '项目' }, { label: '看板', current: true }];
+                    case 'requirements':
+                        return [home, orgList, currentOrg || { label: '组织' }, currentProject || { label: '项目' }, { label: '需求', current: true }];
+                    case 'bugs':
+                        return [home, orgList, currentOrg || { label: '组织' }, currentProject || { label: '项目' }, { label: '缺陷', current: true }];
+                    default:
+                        return [home];
                 }
+            },
+
+            renderBreadcrumbs(items) {
+                return `
+                    <nav class="flex items-center space-x-2" aria-label="Breadcrumb">
+                        ${items.map((item, index) => {
+                            const isLast = index === items.length - 1;
+                            const icon = index === 0 ? `<i class="fa-solid ${item.icon || 'fa-layer-group'} text-purple-600"></i>` : '';
+                            const label = `${icon}${icon ? '' : ''}<span>${item.label}</span>`;
+                            const navigate = item.view ? `onclick='app.navigate("${item.view}"${item.data ? `, ${JSON.stringify(item.data)}` : ''}); return false;'` : '';
+                            const content = isLast || !item.view
+                                ? `<span class="inline-flex items-center gap-1.5 text-gray-900 font-semibold">${label}</span>`
+                                : `<a href="${this.routeToUrl(item.view, item.data || {})}" ${navigate} class="inline-flex items-center gap-1.5 text-gray-500 hover:text-purple-700 transition-colors">${label}</a>`;
+                            return `${index > 0 ? '<i class="fa-solid fa-chevron-right text-[10px] text-gray-400"></i>' : ''}${content}`;
+                        }).join('')}
+                    </nav>
+                `;
             },
 
             renderSidebar() {
@@ -323,7 +519,7 @@
                             <span class="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center mr-3 shadow-lg shadow-purple-500/30">
                                 <i class="fa-solid fa-bolt text-white text-base"></i>
                             </span>
-                            <span class="bg-gradient-to-r from-white to-purple-100 bg-clip-text text-transparent">Mini-Agile</span>
+                            <span class="bg-gradient-to-r from-white to-purple-100 bg-clip-text text-transparent">PongCode</span>
                         </span>
                     </div>
                 `;
@@ -337,9 +533,9 @@
                                 <div class="text-xs font-bold text-purple-300 uppercase tracking-wider mb-2">当前项目</div>
                                 <div class="flex items-center text-white">
                                     <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center font-bold text-sm mr-3 shadow-lg">
-                                        ${this.currentProject.name[0].toUpperCase()}
+                                        ${this.escapeHtml((this.currentProject.name || '项')[0].toUpperCase())}
                                     </div>
-                                    <span class="truncate font-semibold">${this.currentProject.name}</span>
+                                    <span class="truncate font-semibold">${this.escapeHtml(this.currentProject.name || '项目')}</span>
                                 </div>
                             </div>
 
@@ -352,11 +548,11 @@
                                     <i class="fa-solid fa-calendar w-5 text-center mr-3 text-base text-gray-500"></i>
                                     规划
                                 </a>
-                                <a href="#" onclick="app.navigate('requirements', {id: ${this.currentProject.id}})" class="nav-item group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${this.currentView === 'requirements' ? 'active text-purple-300 bg-white/5' : 'text-gray-300 hover:bg-sidebar-hover hover:text-white'}">
+                                <a href="#" onclick='app.navigate("requirements", {"id": ${Number(this.currentProject.id) || 0}}); return false;' class="nav-item group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${this.currentView === 'requirements' ? 'active text-purple-300 bg-white/5' : 'text-gray-300 hover:bg-sidebar-hover hover:text-white'}">
                                     <i class="fa-solid fa-file-lines w-5 text-center mr-3 text-base ${this.currentView === 'requirements' ? 'text-purple-400' : 'text-gray-500'}"></i>
                                     需求
                                 </a>
-                                <a href="#" onclick="app.navigate('bugs', {id: ${this.currentProject.id}})" class="nav-item group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${this.currentView === 'bugs' ? 'active text-purple-300 bg-white/5' : 'text-gray-300 hover:bg-sidebar-hover hover:text-white'}">
+                                <a href="#" onclick='app.navigate("bugs", {"id": ${Number(this.currentProject.id) || 0}}); return false;' class="nav-item group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${this.currentView === 'bugs' ? 'active text-purple-300 bg-white/5' : 'text-gray-300 hover:bg-sidebar-hover hover:text-white'}">
                                     <i class="fa-solid fa-bug w-5 text-center mr-3 text-base ${this.currentView === 'bugs' ? 'text-purple-400' : 'text-gray-500'}"></i>
                                     缺陷
                                 </a>
@@ -367,11 +563,11 @@
 
                                 <div class="my-2 border-t border-white/5"></div>
 
-                                <a href="#" onclick="app.navigate('project_sprints', {id: ${this.currentProject.id}})" class="nav-item group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${this.currentView === 'project_sprints' ? 'active text-purple-300 bg-white/5' : 'text-gray-300 hover:bg-sidebar-hover hover:text-white'}">
+                                <a href="#" onclick='app.navigate("project_sprints", {"id": ${Number(this.currentProject.id) || 0}}); return false;' class="nav-item group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${this.currentView === 'project_sprints' ? 'active text-purple-300 bg-white/5' : 'text-gray-300 hover:bg-sidebar-hover hover:text-white'}">
                                     <i class="fa-solid fa-rotate w-5 text-center mr-3 text-base ${this.currentView === 'project_sprints' ? 'text-purple-400' : 'text-gray-500'}"></i>
                                     迭代
                                 </a>
-                                <a href="#" onclick="app.navigate('board', {id: ${this.currentProject.id}})" class="nav-item group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${this.currentView === 'board' ? 'active text-purple-300 bg-white/5' : 'text-gray-300 hover:bg-sidebar-hover hover:text-white'}">
+                                <a href="#" onclick='app.navigate("board", {"id": ${Number(this.currentProject.id) || 0}}); return false;' class="nav-item group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${this.currentView === 'board' ? 'active text-purple-300 bg-white/5' : 'text-gray-300 hover:bg-sidebar-hover hover:text-white'}">
                                     <i class="fa-solid fa-columns w-5 text-center mr-3 text-base ${this.currentView === 'board' ? 'text-purple-400' : 'text-gray-500'}"></i>
                                     看板
                                 </a>
@@ -405,9 +601,9 @@
                                     <i class="fa-solid fa-house w-5 text-center mr-3 text-base ${this.currentView === 'dashboard' ? 'text-purple-400' : 'text-gray-500'}"></i>
                                     控制台
                                 </a>
-                                <a href="#" onclick="app.navigate('organizations')" class="nav-item group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${this.currentView === 'organizations' || this.currentView === 'org_members' ? 'active text-purple-300' : 'text-gray-300 hover:bg-sidebar-hover hover:text-white'}">
-                                    <i class="fa-solid fa-building w-5 text-center mr-3 text-base ${this.currentView === 'organizations' || this.currentView === 'org_members' ? 'text-purple-400' : 'text-gray-500'}"></i>
-                                    组织
+                                <a href="#" data-testid="sidebar-nav-workbench" onclick="app.navigate('workbench'); return false;" class="nav-item group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${this.currentView === 'workbench' ? 'active text-purple-300' : 'text-gray-300 hover:bg-sidebar-hover hover:text-white'}">
+                                    <i class="fa-solid fa-briefcase w-5 text-center mr-3 text-base ${this.currentView === 'workbench' ? 'text-purple-400' : 'text-gray-500'}"></i>
+                                    工作台
                                 </a>
                                 <a href="#" data-testid="sidebar-nav-teams" onclick="app.modals.selectOrgForTeams(); return false;" class="nav-item group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${this.currentView === 'teams' || this.currentView === 'team_details' ? 'active text-purple-300' : 'text-gray-300 hover:bg-sidebar-hover hover:text-white'}">
                                     <i class="fa-solid fa-users w-5 text-center mr-3 text-base ${this.currentView === 'teams' || this.currentView === 'team_details' ? 'text-purple-400' : 'text-gray-500'}"></i>
@@ -448,7 +644,10 @@
                 }
                 this.user = null;
                 this.currentProject = null;
-                this.navigate('login');
+                this.currentOrg = null;
+                this.currentTeam = null;
+                this.currentSprintId = null;
+                this.navigate('login', {}, { replace: true });
             },
 
             // Helper function for requirements filtering
@@ -520,18 +719,24 @@
                 register: this.handlersRegister.bind(this),
                 forgotPassword: this.handlersForgotPassword.bind(this),
                 resetPassword: this.handlersResetPassword.bind(this),
+                updateProfile: this.handlersUpdateProfile.bind(this),
                 submitOrg: this.handlersSubmitOrg.bind(this),
                 joinOrg: this.handlersJoinOrg.bind(this),
                 submitProject: this.handlersSubmitProject.bind(this),
+                updateProject: this.handlersUpdateProject.bind(this),
                 submitSprint: this.handlersSubmitSprint.bind(this),
                 updateSprint: this.handlersUpdateSprint.bind(this),
+                deleteSprint: this.handlersDeleteSprint.bind(this),
                 updateSprintRequirements: this.handlersUpdateSprintRequirements.bind(this),
                 submitSprintWorkLog: this.handlersSubmitSprintWorkLog.bind(this),
                 submitIssue: this.handlersSubmitIssue.bind(this),
                 submitWorkItem: this.handlersSubmitWorkItem.bind(this),
                 updateIssue: this.handlersUpdateIssue.bind(this),
                 deleteIssue: this.handlersDeleteIssue.bind(this),
+                deleteProject: this.handlersDeleteProject.bind(this),
+                deleteOrganization: this.handlersDeleteOrganization.bind(this),
                 submitWorkLog: this.handlersSubmitWorkLog.bind(this),
+                deleteWorkLog: this.handlersDeleteWorkLog.bind(this),
                 createRequirement: this.handlersCreateRequirement.bind(this),
                 updateRequirement: this.handlersUpdateRequirement.bind(this),
                 deleteRequirement: this.handlersDeleteRequirement.bind(this),
@@ -542,6 +747,7 @@
                 createBug: this.handlersCreateBug.bind(this),
                 updateBug: this.handlersUpdateBug.bind(this),
                 submitBugWorkLog: this.handlersSubmitBugWorkLog.bind(this),
+                deleteBugWorkLog: this.handlersDeleteBugWorkLog.bind(this),
                 submitBugEvidence: this.handlersSubmitBugEvidence.bind(this),
                 deleteBug: this.handlersDeleteBug.bind(this)
             };
@@ -552,6 +758,7 @@
                 createOrg: this.modalCreateOrg.bind(this),
                 joinOrg: this.modalJoinOrg.bind(this),
                 createProject: this.modalCreateProject.bind(this),
+                editProject: this.modalEditProject.bind(this),
                 createSprint: this.modalCreateSprint.bind(this),
                 editSprint: this.modalEditSprint.bind(this),
                 createIssue: this.modalCreateIssue.bind(this),
@@ -569,6 +776,7 @@
             };
 
             window.app = this;
+            window.addEventListener('popstate', this.handleHistoryChange.bind(this));
             this.init();
         }
     };

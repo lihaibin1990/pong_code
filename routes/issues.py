@@ -6,6 +6,7 @@ from flask_login import current_user, login_required
 from extensions import db
 from models import User, Issue, Project, Sprint, WorkLog, organization_members
 from routes.input_utils import parse_nullable_int, parse_int, parse_float, parse_date
+from routes.item_codes import allocate_item_code
 
 bp = Blueprint('issues', __name__, url_prefix='/api')
 
@@ -20,11 +21,13 @@ def _check_project_access(project):
 
 
 def _check_org_admin(org):
-    is_owner = org.owner_id == current_user.id
-    is_admin = db.session.query(organization_members).filter_by(
-        user_id=current_user.id, organization_id=org.id, role='admin'
+    if org.owner_id == current_user.id:
+        return True
+    return db.session.query(organization_members).filter_by(
+        user_id=current_user.id,
+        organization_id=org.id,
+        role='admin',
     ).first() is not None
-    return is_owner or is_admin
 
 
 @bp.route('/projects/<int:project_id>/issues', methods=['POST'])
@@ -44,10 +47,9 @@ def create_issue(project_id):
         sprint_id = parse_nullable_int(data.get('sprint_id'), 'sprint_id')
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
-    if sprint_id is not None:
-        sprint = Sprint.query.filter_by(id=sprint_id, project_id=project_id).first()
-        if not sprint:
-            return jsonify({'error': '未找到该迭代'}), 404
+    item_code, sprint_error = allocate_item_code(sprint_id, project_id)
+    if sprint_error:
+        return jsonify({'error': sprint_error}), 404
     # 泳道快速创建任务没有负责人输入，默认归属给创建人，便于后续工时按负责人统计。
     if assignee_id is None:
         assignee_id = current_user.id
@@ -60,7 +62,8 @@ def create_issue(project_id):
         assignee_id=assignee_id,
         project_id=project_id,
         sprint_id=sprint_id,
-        requirement_id=requirement_id
+        requirement_id=requirement_id,
+        item_code=item_code
     )
     db.session.add(issue)
     db.session.commit()
@@ -71,10 +74,18 @@ def create_issue(project_id):
 @login_required
 def get_issue(issue_id):
     issue = Issue.query.get_or_404(issue_id)
+    if not _check_project_access(issue.project):
+        return jsonify({'error': '无权访问'}), 403
     logs = issue.work_logs.order_by(WorkLog.date.desc(), WorkLog.created_at.desc()).all()
+    can_manage_logs = _check_org_admin(issue.project.organization)
+    work_logs = []
+    for log in logs:
+        log_data = log.to_dict()
+        log_data['can_delete'] = can_manage_logs or log.user_id == current_user.id
+        work_logs.append(log_data)
     return jsonify({
         'issue': issue.to_dict(),
-        'work_logs': [l.to_dict() for l in logs]
+        'work_logs': work_logs
     })
 
 
@@ -117,7 +128,7 @@ def update_issue(issue_id):
 @login_required
 def delete_issue(issue_id):
     issue = Issue.query.get_or_404(issue_id)
-    if not _check_org_admin(issue.project.organization):
+    if not _check_project_access(issue.project):
         return jsonify({'error': '无权访问'}), 403
     WorkLog.query.filter_by(issue_id=issue.id).delete()
     db.session.delete(issue)
@@ -129,6 +140,8 @@ def delete_issue(issue_id):
 @login_required
 def add_worklog(issue_id):
     issue = Issue.query.get_or_404(issue_id)
+    if not _check_project_access(issue.project):
+        return jsonify({'error': '无权访问'}), 403
     data = request.get_json()
     try:
         log_date = parse_date(data.get('date'), 'date', required=True)
@@ -148,6 +161,22 @@ def add_worklog(issue_id):
     db.session.add(log)
     db.session.commit()
     return jsonify({'log': log.to_dict(), 'issue': issue.to_dict()}), 201
+
+
+@bp.route('/issues/<int:issue_id>/worklogs/<int:worklog_id>', methods=['DELETE'])
+@login_required
+def delete_worklog(issue_id, worklog_id):
+    issue = Issue.query.get_or_404(issue_id)
+    if not _check_project_access(issue.project):
+        return jsonify({'error': '无权访问'}), 403
+
+    log = WorkLog.query.filter_by(id=worklog_id, issue_id=issue.id).first_or_404()
+    if log.user_id != current_user.id and not _check_org_admin(issue.project.organization):
+        return jsonify({'error': '无权删除这条工时记录'}), 403
+
+    db.session.delete(log)
+    db.session.commit()
+    return jsonify({'success': True, 'issue_id': issue.id})
 
 
 @bp.route('/issues/<int:issue_id>/move', methods=['POST'])

@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini-Agile</title>
+    <title>PongCode</title>
     <link href="/static/css/tailwind.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <style>
         * {
@@ -70,6 +73,51 @@
         .filter-pill:hover {
             transform: translateY(-1px);
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        /* Organization project list toolbar */
+        .project-list-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .project-list-toolbar__controls {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: nowrap;
+            gap: 8px;
+            margin-left: auto;
+        }
+        .project-list-filter--team {
+            width: 160px;
+        }
+        .project-list-filter--search {
+            width: 224px;
+        }
+        .project-list-filter__icon {
+            flex: 0 0 auto;
+            margin-left: 14px;
+        }
+        @media (max-width: 639px) {
+            .project-list-toolbar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+            .project-list-toolbar__controls {
+                justify-content: flex-start;
+                margin-left: 0;
+                width: 100%;
+            }
+            .project-list-filter--team {
+                width: 42%;
+            }
+            .project-list-filter--search {
+                flex: 1 1 auto;
+                width: auto;
+            }
         }
         
         /* Nav active indicator */
@@ -177,6 +225,94 @@
             border-radius: 12px;
             padding: 20px;
             border: 1px solid #e5e7eb;
+        }
+
+        /* Workbench date range picker */
+        .workbench-date-control {
+            position: relative;
+            width: 236px;
+        }
+        .workbench-date-range.flatpickr-input {
+            width: 100%;
+        }
+        .workbench-date-control > .fa-calendar {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+        .workbench-item-meta {
+            display: flex;
+            flex-wrap: wrap;
+            column-gap: 12px;
+            row-gap: 4px;
+        }
+        .workbench-item-actions {
+            display: flex;
+            align-items: center;
+            flex: 0 0 auto;
+            gap: 8px;
+        }
+        .workbench-action-button {
+            width: 36px;
+            height: 36px;
+            flex: 0 0 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            color: #6b7280;
+            background: #fff;
+            transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+        }
+        .workbench-action-button:not(:disabled):hover {
+            color: #7c3aed;
+            background: #faf5ff;
+            border-color: #d8b4fe;
+            box-shadow: 0 1px 2px rgba(124, 58, 237, 0.08);
+        }
+        .workbench-action-button:focus-visible {
+            outline: 2px solid #c4b5fd;
+            outline-offset: 2px;
+        }
+        .workbench-action-button:disabled {
+            color: #d1d5db;
+            background: #f9fafb;
+            border-color: #f3f4f6;
+        }
+        .flatpickr-calendar.workbench-calendar {
+            z-index: 80;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 16px 40px rgba(17, 24, 39, 0.16);
+            overflow: hidden;
+        }
+        .workbench-calendar .flatpickr-months {
+            padding-top: 8px;
+        }
+        .workbench-calendar .flatpickr-day.selected,
+        .workbench-calendar .flatpickr-day.startRange,
+        .workbench-calendar .flatpickr-day.endRange {
+            background: #7c3aed;
+            border-color: #7c3aed;
+        }
+        .workbench-calendar .flatpickr-day.inRange {
+            background: #ede9fe;
+            border-color: #ede9fe;
+            box-shadow: -5px 0 0 #ede9fe, 5px 0 0 #ede9fe;
+        }
+        @media (max-width: 420px) {
+            .workbench-date-control {
+                width: min(100%, 236px);
+            }
+            .flatpickr-calendar.workbench-calendar {
+                max-width: calc(100vw - 24px);
+            }
+            .workbench-item-actions {
+                gap: 6px;
+            }
         }
         
         /* Enhanced table */
@@ -302,7 +438,9 @@
 
     <script src="/static/js/app.core.js"></script>
     <script src="/static/js/app.views.auth.js"></script>
+    <script src="/static/js/app.views.profile.js"></script>
     <script src="/static/js/app.views.dashboard.js"></script>
+    <script src="/static/js/app.views.workbench.js"></script>
     <script src="/static/js/app.views.org.js"></script>
     <script src="/static/js/app.views.team.js"></script>
     <script src="/static/js/app.views.sprints.js"></script>

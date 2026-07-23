@@ -1,4 +1,4 @@
-# Mini-Agile API 路由包
+# PongCode API 路由包
 # 按领域划分：auth / organizations / teams / projects / sprints / issues / requirements / bugs
 
 from .auth import bp as auth_bp
@@ -9,6 +9,7 @@ from .sprints import bp as sprints_bp
 from .issues import bp as issues_bp
 from .requirements import bp as requirements_bp
 from .bugs import bp as bugs_bp
+from .workbench import bp as workbench_bp
 
 
 def register_blueprints(app):
@@ -21,3 +22,4 @@ def register_blueprints(app):
     app.register_blueprint(issues_bp)
     app.register_blueprint(requirements_bp)
     app.register_blueprint(bugs_bp)
+    app.register_blueprint(workbench_bp)
